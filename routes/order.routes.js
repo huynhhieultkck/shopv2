@@ -2,10 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/order.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
+const auth = require('../middlewares/auth.middleware');
 
-router.post('/', authMiddleware, orderController.create);
-router.get('/my', authMiddleware, orderController.myOrders);
-router.get('/:id', authMiddleware, orderController.orderDetail);
+router.post('/', auth.user, orderController.create);
+router.get('/', auth.user, orderController.list);
+router.get('/:id', auth.user, orderController.orderDetail);
 
 module.exports = router;

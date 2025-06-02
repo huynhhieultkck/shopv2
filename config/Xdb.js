@@ -106,7 +106,7 @@ class Xdb {
             id: Joi.alternatives().try(Joi.string(), Joi.number().integer()).required()
         }).validate({ table, columns, id });
         if (error) throw error;
-        return this.select(table, columns, 'id = ?', [id], executor);
+        return this.select(table, columns, 'id = ?', [id], {}, executor);
     }
 
     async insert(table, data, executor) {
@@ -174,7 +174,7 @@ class Xdb {
         }
     }
 
-    async delete(table, where, params = [], limit, execute) {
+    async delete(table, where, params = [], limit, executor) {
         let { error } = Joi.object({
             table: Joi.string().required(),
             where: Joi.string().optional(),
@@ -187,7 +187,7 @@ class Xdb {
             let query = `DELETE FROM \`${table}\` WHERE ${where}`;
             if (limit) query += ` LIMIT ${limit}`;
 
-            const result = await this.query(query, params, execute);
+            const result = await this.query(query, params, executor);
             return result.affectedRows;
         } catch (err) {
             this.#show('Database delete error:', err);
@@ -195,7 +195,7 @@ class Xdb {
         }
     }
 
-    async replace(table, data, execute) {
+    async replace(table, data, executor) {
         let { error } = Joi.object({
             table: Joi.string().required(),
             data: Joi.object().required()
@@ -208,7 +208,7 @@ class Xdb {
             const placeholders = values.map(() => '?').join(', ');
             const query = `REPLACE INTO \`${table}\` (${keys}) VALUES (${placeholders})`;
 
-            const result = await this.query(query, values, execute);
+            const result = await this.query(query, values, executor);
             return result.insertId;
         } catch (err) {
             this.#show('Database replace error:', err);
@@ -216,7 +216,7 @@ class Xdb {
         }
     }
 
-    async importData(table, dataArray, keyFields = ['id'], batchSize = 1000, execute) {
+    async importData(table, dataArray, keyFields = ['id'], batchSize = 1000, executor) {
         let { error } = Joi.object({
             table: Joi.string().required(),
             dataArray: Joi.array().min(1).items(Joi.object().min(1)).required(),
@@ -245,7 +245,7 @@ class Xdb {
                     ? `INSERT INTO \`${table}\` (${quotedColumns}) VALUES ${allPlaceholders} ON DUPLICATE KEY UPDATE ${updateClause}`
                     : `INSERT IGNORE INTO \`${table}\` (${quotedColumns}) VALUES ${allPlaceholders}`;
 
-                const [result] = await this.query(query, values, execute);
+                const [result] = await this.query(query, values, executor);
                 totalInserted += result.affectedRows;
 
                 this.#show(`✅ Đã xử lý batch ${i + 1} → ${i + batch.length} / ${dataArray.length}`);
@@ -265,7 +265,7 @@ class Xdb {
         const tx = {
             select: (table, columns, where, params, options) => this.select(table, columns, where, params, options, connection),
             selectCount: (table, where, params) => this.selectCount(table, where, params, connection),
-            selectById: (table, id) => this.selectById(table, id, connection),
+            selectById: (table, columns, id) => this.selectById(table, columns, id, connection),
             selectJoin: (from, columns, joins, where, params, options) => this.selectJoin(from, columns, joins, where, params, options, connection),
             insert: (table, data) => this.insert(table, data, connection),
             insertMany: (table, dataArr) => this.insertMany(table, dataArr, connection),

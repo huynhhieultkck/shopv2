@@ -16,17 +16,16 @@ CREATE TABLE users (
   password VARCHAR(255) NOT NULL,
   name VARCHAR(100),
   role ENUM('user', 'admin') DEFAULT 'user',
-  balance DECIMAL(12,2) DEFAULT 0,
+  balance int DEFAULT 0,
+  wallet VARCHAR(255) UNIQUE NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 💰 TOPUP REQUESTS
-CREATE TABLE topup_requests (
+-- 💰 TOPUP
+CREATE TABLE topup (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
-  transaction_code VARCHAR(100) NOT NULL,
-  status ENUM('pending', 'completed') DEFAULT 'pending',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -39,26 +38,10 @@ CREATE TABLE categories (
   image VARCHAR(255),
   description TEXT,
   parent_id INT DEFAULT NULL,
+  price int,
+  available int,
+  sold int,
   FOREIGN KEY (parent_id) REFERENCES categories(id)
-);
-
-
--- 🧾 ACCOUNTS
-CREATE TABLE accounts (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  category_id INT NOT NULL,
-  email VARCHAR(255) NOT NULL,
-  password VARCHAR(255) NOT NULL,
-  recovery_email VARCHAR(255),
-  twofa_code VARCHAR(255),
-  cookies TEXT,
-  backup_codes TEXT,
-  notes TEXT,
-  price DECIMAL(12,2) NOT NULL,
-  status ENUM('available', 'sold', 'locked') DEFAULT 'available',
-  tags VARCHAR(255),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
 -- 🛒 ORDERS
@@ -70,40 +53,19 @@ CREATE TABLE orders (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- 🧾 ORDER ITEMS
-CREATE TABLE order_items (
+-- 🧾 ACCOUNTS
+CREATE TABLE accounts (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  category_id INT NOT NULL,
+  data TEXT NOT NULL,
+  status ENUM('available', 'sold', 'locked') DEFAULT 'available',
   order_id INT NOT NULL,
-  account_id INT,
-  account_snapshot JSON NOT NULL,
-  price DECIMAL(12,2) NOT NULL,
-  FOREIGN KEY (order_id) REFERENCES orders(id),
-  FOREIGN KEY (account_id) REFERENCES accounts(id)
-);
-
--- 🎁 COUPONS
-CREATE TABLE coupons (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(50) UNIQUE NOT NULL,
-  discount_type ENUM('percent', 'fixed') DEFAULT 'percent',
-  discount_value DECIMAL(10,2) NOT NULL,
-  usage_limit INT DEFAULT 0,
-  used_count INT DEFAULT 0,
-  expires_at DATETIME,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 🧾 COUPON USAGE HISTORY
-CREATE TABLE coupon_usages (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  coupon_id INT,
-  user_id INT,
-  order_id INT,
-  used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (coupon_id) REFERENCES coupons(id),
-  FOREIGN KEY (user_id) REFERENCES users(id),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id) REFERENCES categories(id),
   FOREIGN KEY (order_id) REFERENCES orders(id)
 );
+
+
 
 -- 🏦 BANKS
 CREATE TABLE banks (
@@ -116,3 +78,73 @@ CREATE TABLE banks (
   enabled BOOLEAN DEFAULT true,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Tạo procedure cập nhật available/sold cho 1 category
+DROP PROCEDURE IF EXISTS update_category_stats_by_id;
+DELIMITER //
+
+CREATE PROCEDURE update_category_stats_by_id(IN cat_id INT)
+BEGIN
+  UPDATE categories c
+  LEFT JOIN (
+    SELECT 
+      category_id,
+      SUM(status = 'available') AS available,
+      SUM(status = 'sold') AS sold
+    FROM accounts
+    WHERE category_id = cat_id
+    GROUP BY category_id
+  ) a ON c.id = a.category_id
+  SET 
+    c.available = IFNULL(a.available, 0),
+    c.sold = IFNULL(a.sold, 0)
+  WHERE c.id = cat_id;
+END;
+//
+DELIMITER ;
+
+-- Trigger AFTER INSERT
+DROP TRIGGER IF EXISTS trg_after_insert_accounts;
+DELIMITER //
+
+CREATE TRIGGER trg_after_insert_accounts
+AFTER INSERT ON accounts
+FOR EACH ROW
+BEGIN
+  CALL update_category_stats_by_id(NEW.category_id);
+END;
+//
+DELIMITER ;
+
+-- Trigger AFTER DELETE
+DROP TRIGGER IF EXISTS trg_after_delete_accounts;
+DELIMITER //
+
+CREATE TRIGGER trg_after_delete_accounts
+AFTER DELETE ON accounts
+FOR EACH ROW
+BEGIN
+  CALL update_category_stats_by_id(OLD.category_id);
+END;
+//
+DELIMITER ;
+
+-- Trigger AFTER UPDATE
+DROP TRIGGER IF EXISTS trg_after_update_accounts;
+DELIMITER //
+
+CREATE TRIGGER trg_after_update_accounts
+AFTER UPDATE ON accounts
+FOR EACH ROW
+BEGIN
+  IF OLD.category_id != NEW.category_id THEN
+    CALL update_category_stats_by_id(OLD.category_id);
+    CALL update_category_stats_by_id(NEW.category_id);
+  ELSE
+    CALL update_category_stats_by_id(NEW.category_id);
+  END IF;
+END;
+//
+DELIMITER ;
+
+

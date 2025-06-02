@@ -1,4 +1,4 @@
-const Xdb = require('../config/db');
+const Xdb = require('../config/Xdb');
 const axios = require('axios');
 
 const BANK_URLS = {
@@ -34,13 +34,13 @@ const cron = async () => {
 
                     const topup = topups[0];
                     await Xdb.transaction(async (db) => {
-                        await db.update('topup_requests', { status: 'completed' }, 'd i= ?', [topup.id]);
+                        await db.update('topup_requests', { status: 'completed' }, 'id = ?', [topup.id]);
                         await db.query('UPDATE users SET balance = balance + ? WHERE id = ?', [amount, topup.user_id]);
                     });
                 }
             }
             await sleep(10000);
-        } catch (err) { }
+        } catch (err) { console.error(err); }
     }
 }
 

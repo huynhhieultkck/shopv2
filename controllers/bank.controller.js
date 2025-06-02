@@ -1,52 +1,68 @@
 // controllers/bank.controller.js
-const Xdb = require('../config/db');
+const Xdb = require('../config/Xdb');
 const Joi = require('joi');
+const Xerror = require('../config/Xerror');
 
-module.exports = {
-    listBanks: async (req, res) => {
+// -----Admin-----
+const list = async (req, res) => {
+    try {
         const banks = await Xdb.select('banks');
-        res.json(banks);
-    },
+        return res.json({ success: true, banks });
+    } catch (err) { throw Xerror('Lấy danh sách banks không thành công !', 500); }
+}
+const add = async (req, res) => {
+    const schema = Joi.object({
+        name: Joi.string().required(),
+        code: Joi.string().valid('vietcombank', 'bidv', 'mbbank', 'acb', 'techcombank').required(),
+        account_number: Joi.string().required(),
+        password: Joi.string().required(),
+        token: Joi.string().required(),
+        enabled: Joi.boolean().default(true)
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
 
-    createBank: async (req, res) => {
-        const schema = Joi.object({
-            name: Joi.string().required(),
-            code: Joi.string().valid('vietcombank','bidv','mbbank','acb','techcombank').required(),
-            account_number: Joi.string().required(),
-            password: Joi.string().required(),
-            token: Joi.string().required(),
-            enabled: Joi.boolean().default(true)
-        });
-        const { error } = schema.validate(req.body);
-        if (error) return res.status(400).json({ message: error.details[0].message });
+    try {
+        const bankId = await Xdb.insert('banks', value);
+        return res.json({ success: true, id: bankId, message: 'Thêm banks thành công !' });
+    } catch (err) { throw new Xerror('Thêm banks thành công !', 500); }
+}
+const update = async (req, res) => {
+    const id = req.params.id;
+    const schema = Joi.object({
+        name: Joi.string(),
+        account_number: Joi.string(),
+        password: Joi.string(),
+        token: Joi.string(),
+        enabled: Joi.boolean()
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
 
-        const bankId = await Xdb.insert('banks', req.body);
-        res.json({ id: bankId, message: 'Bank added successfully' });
-    },
-
-    updateBank: async (req, res) => {
-        const id = req.params.id;
-        const schema = Joi.object({
-            name: Joi.string(),
-            account_number: Joi.string(),
-            password: Joi.string(),
-            token: Joi.string(),
-            enabled: Joi.boolean()
-        });
-        const { error } = schema.validate(req.body);
-        if (error) return res.status(400).json({ message: error.details[0].message });
-
-        await Xdb.update('banks', req.body, 'id = ?', [id]);
-        res.json({ message: 'Bank updated successfully' });
-    },
-
-    deleteBank: async (req, res) => {
+    try {
+        await Xdb.update('banks', value, 'id = ?', [id]);
+        return res.json({ success: true, message: 'Cập nhật banks thành công !' });
+    } catch (err) { throw new Xerror('Cập nhật banks thành công !', 500); }
+}
+const del = async (req, res) => {
+    try {
         const id = req.params.id;
         await Xdb.delete('banks', 'id = ?', [id]);
-        res.json({ message: 'Bank deleted' });
-    },
+        return res.json({ success: true, message: 'Xoá banks thành công !' });
+    } catch (err) { throw new Xerror('Xoá banks thành công !', 500); }
+}
 
-    syncAllBanks: async (req, res) => {
-        res.json({ message: `✅ Đã đồng bộ giao dịch từ tất cả ngân hàng.` });
-    }
+// ----- Public-----
+const view = async (req, res) => {
+    try {
+        const banks = await Xdb.select('banks', ['id', 'name', 'code', 'account_number'], 'enabled = ?', [true]);
+        return res.json({ success: true, banks });
+    } catch (err) { throw new Xerror('Lấy danh sách banks thành công !', 500); }
+}
+module.exports = {
+    list,
+    add,
+    update,
+    del,
+    view
 };

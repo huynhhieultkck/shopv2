@@ -2,10 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const walletController = require('../controllers/wallet.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
+const auth = require('../middlewares/auth.middleware');
 
-router.get('/balance', authMiddleware, walletController.getBalance);
-router.post('/topup', authMiddleware, walletController.topupRequest);
-router.get('/history', authMiddleware, walletController.topupHistory);
+router.get('/balance', auth.user, walletController.balance);
+router.get('/history', auth.user, walletController.topupHistory);
 
 module.exports = router;

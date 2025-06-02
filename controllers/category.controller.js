@@ -1,11 +1,11 @@
 // controllers/category.controller.js
-const Xdb = require('../config/db');
+const Xdb = require('../config/Xdb');
 const Joi = require('joi');
+const Xerror = require('../config/Xerror');
 
 async function buildTree(parentId = null) {
   const rows = await Xdb.select(
-    'categories',
-    ['id', 'name', 'slug', 'description', 'parent_id', 'image'],
+    'categories', [],
     parentId === null ? 'parent_id IS NULL' : 'parent_id = ?',
     parentId === null ? [] : [parentId]
   );
@@ -15,64 +15,76 @@ async function buildTree(parentId = null) {
   return rows;
 }
 
-module.exports = {
-  list: async (req, res) => {
+// ----Public ----
+
+const view = async (req, res) => {
+  try {
+    const categories = await buildTree(req.query.parent || null);
+    return res.json({ success: true, categories });
+  } catch (err) { throw new Xerror('Lấy danh sách categorys không thành công !', 500); }
+}
+
+const list = async (req, res) => {
+  try {
     const parent_id = req.query.parent || null;
-    const where = parent_id !== null ? 'parent_id = ?' : 'parent_id IS NULL';
-    const params = parent_id !== null ? [parent_id] : [];
     const categories = await Xdb.select(
-      'categories',
-      ['id', 'name', 'slug', 'description', 'parent_id', 'image'],
-      where,
-      params,
+      'categories', [],
+      !!parent_id ? 'parent_id = ?' : null,
+      !!parent_id ? [parent_id] : [],
       { orderBy: 'id DESC' }
     );
-    res.json(categories);
-  },
+    return res.json({ success: true, categories });
+  } catch (err) { throw new Xerror('Lấy danh sách categorys không thành công !', 500); }
+}
 
-  tree: async (req, res) => {
-    try {
-      const tree = await buildTree();
-      res.json(tree);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  },
+// ----Admin----
 
-  create: async (req, res) => {
-    const schema = Joi.object({
-      name: Joi.string().required(),
-      slug: Joi.string().required(),
-      description: Joi.string().allow('').optional(),
-      parent_id: Joi.number().allow(null).optional(),
-      image: Joi.string().uri().optional()
-    });
-    const { error } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
+const add = async (req, res) => {
+  const schema = Joi.object({
+    name: Joi.string().required(),
+    slug: Joi.string().required(),
+    description: Joi.string().allow('').optional(),
+    parent_id: Joi.number().allow(null).optional(),
+    image: Joi.string().uri().optional(),
+    price: Joi.number().integer().required()
+  });
+  const { error, value } = schema.validate(req.body);
+  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
 
-    const id = await Xdb.insert('categories', req.body);
-    res.json({ id, message: 'Category created successfully' });
-  },
+  try {
+    const id = await Xdb.insert('categories', value);
+    return res.json({ success: true, id, message: 'Thêm category thành công !' });
+  } catch (err) { throw new Xerror('Thêm category không thành công !', 500); }
+}
+const update = async (req, res) => {
+  const id = req.params.id;
+  const schema = Joi.object({
+    name: Joi.string(),
+    slug: Joi.string(),
+    description: Joi.string().allow('').optional(),
+    parent_id: Joi.number().allow(null).optional(),
+    image: Joi.string().uri().optional(),
+    price: Joi.number().integer().optional()
+  });
+  const { error, value } = schema.validate(req.body);
+  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
 
-  update: async (req, res) => {
-    const id = req.params.id;
-    const schema = Joi.object({
-      name: Joi.string(),
-      slug: Joi.string(),
-      description: Joi.string().allow('').optional(),
-      parent_id: Joi.number().allow(null).optional(),
-      image: Joi.string().uri().optional()
-    });
-    const { error } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
-
-    await Xdb.update('categories', req.body, 'id = ?', [id]);
-    res.json({ message: 'Category updated' });
-  },
-
-  remove: async (req, res) => {
-    const id = req.params.id;
+  try {
+    await Xdb.update('categories', value, 'id = ?', [id]);
+    return res.json({ success: true, message: 'Cập nhật category thành công !' });
+  } catch (err) { throw new Xerror('Cập nhật category không thành công !', 500); }
+}
+const del = async (req, res) => {
+  const id = req.params.id;
+  try {
     await Xdb.delete('categories', 'id = ?', [id]);
-    res.json({ message: 'Category deleted' });
-  }
+    return res.json({ success: true, message: 'Xoá category thành công !' });
+  } catch (err) { throw new Xerror('Xoá category không thành công !', 500); }
+}
+module.exports = {
+  view,
+  list,
+  add,
+  update,
+  del
 };
