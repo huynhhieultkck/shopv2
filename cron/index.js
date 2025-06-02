@@ -29,12 +29,12 @@ const cron = async () => {
                     const transaction_code = `NAP${match[1]}`;
                     const amount = parseInt(tx.amount);
 
-                    const topups = await Xdb.select('topup_requests', ['id', 'user_id', 'status'], 'transaction_code = ? AND status = ?', [transaction_code, 'pending']);
+                    const topups = await Xdb.select('topup', ['id', 'user_id', 'status'], 'transaction_code = ? AND status = ?', [transaction_code, 'pending']);
                     if (!topups.length) continue;
 
                     const topup = topups[0];
                     await Xdb.transaction(async (db) => {
-                        await db.update('topup_requests', { status: 'completed' }, 'id = ?', [topup.id]);
+                        await db.update('topup', { status: 'completed' }, 'id = ?', [topup.id]);
                         await db.query('UPDATE users SET balance = balance + ? WHERE id = ?', [amount, topup.user_id]);
                     });
                 }

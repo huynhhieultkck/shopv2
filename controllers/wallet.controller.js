@@ -1,4 +1,5 @@
 // controllers/wallet.controller.js
+const Joi = require('joi');
 const Xdb = require('../config/Xdb');
 const Xerror = require('../config/Xerror');
 

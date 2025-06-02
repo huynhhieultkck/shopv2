@@ -59,7 +59,7 @@ CREATE TABLE accounts (
   category_id INT NOT NULL,
   data TEXT NOT NULL,
   status ENUM('available', 'sold', 'locked') DEFAULT 'available',
-  order_id INT NOT NULL,
+  order_id INT DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (category_id) REFERENCES categories(id),
   FOREIGN KEY (order_id) REFERENCES orders(id)
