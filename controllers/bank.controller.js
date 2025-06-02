@@ -25,7 +25,7 @@ const add = async (req, res) => {
     try {
         const bankId = await Xdb.insert('banks', value);
         return res.json({ success: true, id: bankId, message: 'Thêm banks thành công !' });
-    } catch (err) { throw new Xerror('Thêm banks thành công !', 500); }
+    } catch (err) { throw new Xerror('Thêm banks không thành công !', 500); }
 }
 const update = async (req, res) => {
     const id = req.params.id;

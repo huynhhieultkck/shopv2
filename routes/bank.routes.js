@@ -8,6 +8,6 @@ router.get('/', auth.user, auth.admin, bankController.list);
 router.post('/', auth.user, auth.admin, bankController.add);
 router.patch('/:id', auth.user, auth.admin, bankController.update);
 router.delete('/:id', auth.user, auth.admin, bankController.del);
-router.post('/view', auth.user, bankController.view);
+router.get('/view', auth.user, bankController.view);
 
 module.exports = router;
