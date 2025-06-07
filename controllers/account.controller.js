@@ -10,7 +10,7 @@ const list = async (req, res) => {
     category_id: Joi.number().integer().optional(),
     status: Joi.string().valid('available', 'sold', 'locked').optional(),
     page: Joi.number().integer().min(1)
-  })
+  });
 
   const { error, value: { category_id, status, page } } = schema.validate(req.query);
   if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
@@ -49,7 +49,7 @@ const update = async (req, res) => {
     data: Joi.string(),
     status: Joi.string().valid('available', 'sold', 'locked'),
     category_id: Joi.number()
-  });
+  }).required();
   const { error, value } = schema.validate(req.body);
   if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
 

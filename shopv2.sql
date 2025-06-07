@@ -26,6 +26,8 @@ CREATE TABLE topup (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
+  bank_transaction_id VARCHAR(255) UNIQUE NOT NULL,
+  description TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

@@ -11,7 +11,10 @@ const BANK_URLS = {
 const sleep = (ms = 1000) => new Promise(rs => setTimeout(rs, ms))
 let onCron = false;
 const cron = async () => {
-    if (onCron) return; else onCron = true;
+    if (onCron) return;
+    onCron = true;
+    console.log('Cron job started...');
+
     while (onCron) {
         try {
             const activeBanks = await Xdb.select('banks', [], 'enabled = 1');
@@ -19,28 +22,32 @@ const cron = async () => {
             for (const bank of activeBanks) {
                 const url = `${BANK_URLS[bank.code]}/${bank.password}/AccountNumber/${bank.token}`;
                 const response = await axios.get(url);
+
                 const transactions = response.data.transactions || [];
 
                 for (const tx of transactions) {
                     if (tx.type !== 'IN') continue;
 
-                    const match = tx.description.match(/NAP([a-zA-Z0-9]+)/);
-                    if (!match) continue;
-                    const transaction_code = `NAP${match[1]}`;
-                    const amount = parseInt(tx.amount);
+                    const bankTxId = tx.transactionID;
+                    if (await Xdb.exists('topup', 'bank_transaction_id = ?', [bankTxId])) continue;
 
-                    const topups = await Xdb.select('topup', ['id', 'user_id', 'status'], 'transaction_code = ? AND status = ?', [transaction_code, 'pending']);
-                    if (!topups.length) continue;
+                    const match = tx.description.match(/\bVMMO([a-zA-Z0-9]+)/i);
+                    if (!match || !match[1]) continue;
+                    const walletCode = match[1].toUpperCase();
+                    const amount = parseInt(tx.amount, 10);
 
-                    const topup = topups[0];
-                    await Xdb.transaction(async (db) => {
-                        await db.update('topup', { status: 'completed' }, 'id = ?', [topup.id]);
-                        await db.query('UPDATE users SET balance = balance + ? WHERE id = ?', [amount, topup.user_id]);
-                    });
+                    try {
+                        await Xdb.transaction(async (db) => {
+                            const [user] = await db.select('users', ['id'], 'wallet = ?', [walletCode]);
+                            if (!user) return;
+                            await db.insert('topup', { user_id: user.id, amount: amount, bank_transaction_id: bankTxId, description: tx.description });
+                            await db.query('UPDATE users SET balance = balance + ? WHERE id = ?', [amount, user.id]);
+                        });
+                    } catch { }
                 }
             }
-            await sleep(10000);
         } catch (err) { console.error(err); }
+        await sleep(10000);
     }
 }
 
