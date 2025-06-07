@@ -69,6 +69,7 @@ class Xdb {
             let query = `${selectClause} FROM \`${table}\`${alias ? ` AS ${alias}` : ''}`;
             if (where) query += ` WHERE ${where}`;
             query += ' ' + this.#buildQueryOptions(options);
+            if (options.forUpdate) query += ' FOR UPDATE';
 
             const finalParams = [...(params || []), ...(options.havingParams || [])];
             const result = await this.query(query, finalParams, executor);
@@ -106,7 +107,7 @@ class Xdb {
             id: Joi.alternatives().try(Joi.string(), Joi.number().integer()).required()
         }).validate({ table, columns, id });
         if (error) throw error;
-        return this.select(table, columns, 'id = ?', [id], {}, executor);
+        return this.select(table, columns, 'id = ?', [id], executor);
     }
 
     async insert(table, data, executor) {
@@ -174,7 +175,7 @@ class Xdb {
         }
     }
 
-    async delete(table, where, params = [], limit, executor) {
+    async delete(table, where, params = [], limit, execute) {
         let { error } = Joi.object({
             table: Joi.string().required(),
             where: Joi.string().optional(),
@@ -187,7 +188,7 @@ class Xdb {
             let query = `DELETE FROM \`${table}\` WHERE ${where}`;
             if (limit) query += ` LIMIT ${limit}`;
 
-            const result = await this.query(query, params, executor);
+            const result = await this.query(query, params, execute);
             return result.affectedRows;
         } catch (err) {
             this.#show('Database delete error:', err);
@@ -195,7 +196,7 @@ class Xdb {
         }
     }
 
-    async replace(table, data, executor) {
+    async replace(table, data, execute) {
         let { error } = Joi.object({
             table: Joi.string().required(),
             data: Joi.object().required()
@@ -208,7 +209,7 @@ class Xdb {
             const placeholders = values.map(() => '?').join(', ');
             const query = `REPLACE INTO \`${table}\` (${keys}) VALUES (${placeholders})`;
 
-            const result = await this.query(query, values, executor);
+            const result = await this.query(query, values, execute);
             return result.insertId;
         } catch (err) {
             this.#show('Database replace error:', err);
@@ -216,7 +217,7 @@ class Xdb {
         }
     }
 
-    async importData(table, dataArray, keyFields = ['id'], batchSize = 1000, executor) {
+    async importData(table, dataArray, keyFields = ['id'], batchSize = 1000, execute) {
         let { error } = Joi.object({
             table: Joi.string().required(),
             dataArray: Joi.array().min(1).items(Joi.object().min(1)).required(),
@@ -245,7 +246,7 @@ class Xdb {
                     ? `INSERT INTO \`${table}\` (${quotedColumns}) VALUES ${allPlaceholders} ON DUPLICATE KEY UPDATE ${updateClause}`
                     : `INSERT IGNORE INTO \`${table}\` (${quotedColumns}) VALUES ${allPlaceholders}`;
 
-                const [result] = await this.query(query, values, executor);
+                const [result] = await this.query(query, values, execute);
                 totalInserted += result.affectedRows;
 
                 this.#show(`✅ Đã xử lý batch ${i + 1} → ${i + batch.length} / ${dataArray.length}`);
@@ -265,7 +266,7 @@ class Xdb {
         const tx = {
             select: (table, columns, where, params, options) => this.select(table, columns, where, params, options, connection),
             selectCount: (table, where, params) => this.selectCount(table, where, params, connection),
-            selectById: (table, columns, id) => this.selectById(table, columns, id, connection),
+            selectById: (table, id) => this.selectById(table, id, connection),
             selectJoin: (from, columns, joins, where, params, options) => this.selectJoin(from, columns, joins, where, params, options, connection),
             insert: (table, data) => this.insert(table, data, connection),
             insertMany: (table, dataArr) => this.insertMany(table, dataArr, connection),
@@ -332,6 +333,7 @@ class Xdb {
             // WHERE + các option khác
             if (where) query += ` WHERE ${where}`;
             query += ' ' + this.#buildQueryOptions(options);
+            if (options.forUpdate) query += ' FOR UPDATE';
 
             const finalParams = [...(params || []), ...(options.havingParams || [])];
             const result = await this.query(query, finalParams, executor);
@@ -387,8 +389,10 @@ class Xdb {
         limit: Joi.number().integer().optional(),
         offset: Joi.number().integer().optional(),
         random: Joi.boolean().optional(),
-        countOnly: Joi.boolean().optional()
+        countOnly: Joi.boolean().optional(),
+        forUpdate: Joi.boolean().optional()
     }).optional();
 }
+
 
 module.exports = new Xdb();
