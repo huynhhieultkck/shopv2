@@ -43,7 +43,7 @@ const cron = async () => {
                             await db.insert('topup', { user_id: user.id, amount: amount, bank_transaction_id: bankTxId, description: tx.description });
                             await db.query('UPDATE users SET balance = balance + ? WHERE id = ?', [amount, user.id]);
                         });
-                    } catch { }
+                    } catch (e) { console.error(`Lỗi khi xử lý giao dịch ${tx.transactionID}:`, e.message); }
                 }
             }
         } catch (err) { console.error(err); }

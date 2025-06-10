@@ -14,18 +14,19 @@ CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  name VARCHAR(100),
+  name VARCHAR(100) NOT NULL,
   role ENUM('user', 'admin') DEFAULT 'user',
   balance int DEFAULT 0,
   wallet VARCHAR(255) UNIQUE NOT NULL,
+  enabled BOOLEAN DEFAULT true,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 💰 TOPUP
-CREATE TABLE topup (
+CREATE TABLE topups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  amount DECIMAL(12,2) NOT NULL,
+  amount INT NOT NULL,
   bank_transaction_id VARCHAR(255) UNIQUE NOT NULL,
   description TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -40,9 +41,11 @@ CREATE TABLE categories (
   image VARCHAR(255),
   description TEXT,
   parent_id INT DEFAULT NULL,
-  price int,
+  price int NOT NULL,
   available int,
   sold int,
+  enabled BOOLEAN DEFAULT true,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (parent_id) REFERENCES categories(id)
 );
 
@@ -50,7 +53,7 @@ CREATE TABLE categories (
 CREATE TABLE orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  total_price DECIMAL(12,2) NOT NULL,
+  total_price int NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

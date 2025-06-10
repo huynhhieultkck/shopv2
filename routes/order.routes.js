@@ -4,8 +4,7 @@ const router = express.Router();
 const orderController = require('../controllers/order.controller');
 const auth = require('../middlewares/auth.middleware');
 
-router.post('/', auth.user, orderController.create);
-router.get('/', auth.user, orderController.list);
-router.get('/:id', auth.user, orderController.orderDetail);
+router.get('/', auth.user, orderController.client.listOrder);
+router.get('/:id', auth.user, orderController.client.viewOrder);
 
 module.exports = router;

@@ -1,67 +1,52 @@
 // controllers/order.controller.js
-const Xdb = require('../config/Xdb');
 const Joi = require('joi');
-const Xerror = require('../config/Xerror');
+const { Xcrud, Xerror } = require('xsupport');
+const { accountCRUD } = require('./account.controller');
+const { client } = require('./user.controller');
 
-const list = async (req, res) => {
-  let { error, value } = Joi.number().integer().min(1).validate(req.query.page);
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 500);
-
-  try {
-    const option = { orderBy: 'created_at DESC', limit: 20 };
-    if (value) option.offset = (value - 1) * 20;
-
-    const orders = await Xdb.select('orders', ['id', 'total_price', 'created_at'], 'user_id = ?', [req.user.id], option);
-    return res.json({ success: true, orders });
-  } catch (err) { throw new Xerror('Lấy danh sách order không thành công !', 500); }
+const schema = Joi.object({
+  user_id: Joi.number().integer(),
+  total_price: Joi.number().integer()
+});
+const CRUD = new Xcrud('orders', schema);
+// Client
+const listOrder = async (req, res) => {
+  const orders = await CRUD.read({ ...req.query, user_id: req.user.id }, ['user_id']);
+  return res.json({ success: true, orders });
 }
-
-const orderDetail = async (req, res) => {
-  try {
-    const id = req.params.id;
-
-    const [order] = await Xdb.select('orders', ['id', 'total_price', 'created_at'], 'id = ? AND user_id = ?', [id, req.user.id]);
-    if (!order) return res.status(403).json({ success: false, message: 'Thông tin không hợp lệ !' });
-
-    const accounts = await Xdb.select('accounts', ['data'], 'order_id = ?', [id]);
-    return res.json({ success: true, ...order, accounts });
-  } catch (err) { throw new Xerror('Lấy thông tin order không thành công !', 500); }
+const viewOrder = async (req, res) => {
+  const [order] = await CRUD.read({ id: req.params.id, user_id: req.user.id }, ['id', 'user_id']);
+  if (!order) return new Xerror('Đơn hàng không tồn tại !', { status: 403 });
+  order.accounts = await accountCRUD.read({ order_id: order.id }, ['order_id'], ['data']);
+  return res.json({ success: true, order });
 }
+// Admin
 const create = async (req, res) => {
-  const schema = Joi.object({
-    category_id: Joi.number().integer().required(),
-    quantity: Joi.number().integer().min(1).required()
-  });
-  const { error, value: { category_id, quantity } } = schema.validate(req.body);
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
-
-  try {
-    const userId = req.user.id;
-
-    //Kiểm tra category và số lượng account
-    const [category] = await Xdb.select('categories', ['id', 'price', 'available'], 'id = ?', [category_id]);
-    if (!category) return res.status(403).json({ success: false, message: 'Category không tồn tại !' });
-    if (category.available < quantity) return res.status(403).json({ success: false, message: 'Số lượng account không đủ !' });
-
-    //Kiểm tra balance
-    const [{ balance }] = await Xdb.select('users', ['balance'], 'id = ?', [userId]);
-    const total = quantity * category.price;
-    if (!balance || balance < total) return res.status(403).json({ success: false, message: 'Số dư không đủ !' });
-
-    const result = await Xdb.transaction(async (tx) => {
-      const orderId = await tx.insert('orders', { user_id: userId, total_price: total });
-      const affectedRows = await tx.update('accounts', { status: 'sold', order_id: orderId }, 'category_id = ? AND status = ?', [category_id, 'available'], quantity);
-      if (affectedRows < quantity) throw new Xerror('Tạo order không thành công !', 500);
-      await tx.query('UPDATE users SET balance = balance - ? WHERE id = ?', [total, userId]);
-      return orderId;
-    })
-
-    return res.json({ success: true, orderId: result });
-  } catch (err) { throw new Xerror('Tạo order không thành công !', 500); }
+  const ordertId = await CRUD.create(req.body, ['user_id', 'total_price']);
+  return res.json({ success: true, ordertId });
 }
-
+const list = async (req, res) => {
+  const orders = await CRUD.read(req.query);
+  return res.json({ success: true, orders });
+}
+const count = async (req, res) => {
+  const result = await CRUD.read({ ...req.query, count: true });
+  return res.json({ success: true, count: result })
+}
+const view = async (req, res) => {
+  const [order] = await CRUD.read({ id: req.params.id }, ['id']);
+  return res.json({ success: true, order });
+}
+const update = async (req, res) => {
+  await CRUD.update(req.params.id, req.body);
+  return res.json({ success: true });
+}
+const del = async (req, res) => {
+  await CRUD.del(req.params.id);
+  return res.json({ success: true });
+}
 module.exports = {
-  list,
-  orderDetail,
-  create
+  client: { listOrder, viewOrder },
+  admin: { create, list, count, view, update, del }
 };
+

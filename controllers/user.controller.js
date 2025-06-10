@@ -1,97 +1,78 @@
 // controllers/user.controller.js
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const Joi = require('joi');
-const Xdb = require('../config/Xdb');
-const Xerror = require('../config/Xerror');
-const { v4: uuidv4 } = require('uuid');
+const { Xcode, Xcrud, Xerror } = require('xsupport');
+const SERECT = process.env.JWT_SECRET;
+const SERECT_EXPIRES = process.env.JWT_EXPIRES_IN;
 
-const SECRET = process.env.JWT_SECRET || 'ngohuynhhieu';
+const schema = Joi.object({
+  email: Joi.string().email(),
+  password: Joi.string().min(5),
+  name: Joi.string(),
+  role: Joi.string().valid('user', 'admin').default('user'),
+  balance: Joi.number().integer().default(0),
+  wallet: Joi.string(),
+  enabled: Joi.boolean()
+})
+const CRUD = new Xcrud('users', schema);
 
-const randomWallet = async () => {
-  while (true) {
-    let wallet = uuidv4().split('-')[0].toUpperCase();
-    if (await Xdb.exists('users', 'wallet = ?', [wallet])) continue;
-    else return wallet;
-  }
-}
-
-// Đăng kí
+// Client
 const register = async (req, res) => {
-  const schema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().min(6).required(),
-    name: Joi.string().min(2).max(100).required()
-  });
-  const { error } = schema.validate(req.body);
-  if (error) throw new Xerror('Thông tin đăng kí không hợp lệ !', 403);
-
-  try {
-    const { email, password, name } = req.body;
-    const exists = await Xdb.exists('users', 'email = ?', [email]);
-    if (exists) throw new Xerror('Email đã tồn tại !', 403);
-
-    const hashed = bcrypt.hashSync(password, 10);
-    const wallet = await randomWallet();
-    const userId = await Xdb.insert('users', { email, password: hashed, name, wallet });
-    return res.json({ success: true, userId, message: 'Đăng kí thành công !' });
-  } catch (err) { throw new Xerror('Không thể đang kí tài khoản !', 500); }
+  let { email, password, name } = req.body;
+  if (password) password = Xcode.password.hash(password);
+  const wallet = Xcode.uuid.v4().split('-')[0].toUpperCase();
+  const userId = await CRUD.create({ email, password, name, role: 'user', wallet, enabled: true }, ['email', 'password', 'name']);
+  return res.json({ success: true, userId });
 }
-
-// Đăng nhập
 const login = async (req, res) => {
-  const schema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().required()
-  });
-  const { error } = schema.validate(req.body);
-  if (error) throw new Xerror('Thông tin đăng nhập không hợp lệ !', 403);
-
-  try {
-    const { email, password } = req.body;
-    const [user] = await Xdb.select('users', ['id', 'password', 'name', 'role'], 'email = ?', [email]);
-    if (!user) throw new Xerror('Tài khoản không tồn tại !', 403);
-
-    const valid = bcrypt.compareSync(password, user.password);
-    if (!valid) throw new Xerror('Mật khẩu không chính xác !', 403);
-
-    const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: '1d' });
-    delete user.password;
-    return res.json({ success: true, token, user });
-  } catch (err) { throw new Xerror('Đăng nhập không thành công !', 500); }
+  let { email, password } = req.body;
+  const [user] = await CRUD.read({ email }, ['email'], [], { limit: 1, verify: true });
+  if (!user || !Xcode.password.compare(password, user.password) || !user.enabled) return new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
+  const token = Xcode.jwt.sign({ id: user.id, role: user.role }, SERECT, SERECT_EXPIRES);
+  delete user.password;
+  return res.json({ success: true, user, token });
 }
-
-// thông tin tài khoản
 const profile = async (req, res) => {
-  try {
-    const { id } = req.user;
-    const [user] = await Xdb.select('users', ['id', 'email', 'name', 'role', 'balance', 'wallet'], 'id = ?', [id]);
-    return res.json({ success: true, user });
-  } catch (err) { throw new Xerror('Lấy thông tin tài khoản không thành công !', 500); }
+  const [user] = await CRUD.read({ id: req.user.id }, ['id']);
+  delete user.password;
+  return res.json({ success: true, user });
 }
-
-// Cập nhật tài khoản
+const updatePassword = async (req, res) => {
+  let { password } = req.body;
+  if (password) password = Xcode.password.hash(password);
+  await CRUD.update(req.user.id, { password });
+  return res.json({ success: true });
+}
+// Admin
+const create = async (req, res) => {
+  let { email, password, name, role, enabled } = req.body;
+  if (password) password = Xcode.password.hash(password);
+  const wallet = Xcode.uuid.v4().split('-')[0].toUpperCase();
+  const userId = await CRUD.create({ email, password, name, wallet, role, enabled }, ['email', 'password', 'name', 'wallet']);
+  return res.json({ success: true, userId });
+}
+const list = async (req, res) => {
+  const users = await CRUD.read(req.query);
+  return res.json({ success: true, users });
+}
+const count = async (req, res) => {
+  const result = await CRUD.read({ ...req.query, count: true });
+  return res.json({ success: true, count: result })
+}
+const view = async (req, res) => {
+  const [user] = await CRUD.read({ id: req.params.id }, ['id']);
+  delete user.password;
+  return res.json({ success: true, user });
+}
 const update = async (req, res) => {
-  const schema = Joi.object({
-    name: Joi.string().min(2).max(100).optional(),
-    password: Joi.string().min(6).optional()
-  });
-  const { error } = schema.validate(req.body);
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
-
-  try {
-    const { id } = req.user;
-    const { name, password } = req.body;
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (password) updateData.password = bcrypt.hashSync(password, 10);
-    await Xdb.update('users', updateData, 'id = ?', [id]);
-    return res.json({ success: true, message: 'Cập nhật tài khoảnn thành công !' });
-  } catch (err) { throw new Xerror('Cập nhật thông tin tài khoản không thành công !', 500); }
+  await CRUD.update(req.params.id, req.body);
+  return res.json({ success: true });
 }
+const del = async (req, res) => {
+  await CRUD.del(req.params.id);
+  return res.json({ success: true });
+}
+
 module.exports = {
-  register,
-  login,
-  profile,
-  update
-};
+  client: { register, login, profile, updatePassword },
+  admin: { create, list, count, view, update, del }
+}

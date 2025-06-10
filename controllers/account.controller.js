@@ -1,74 +1,42 @@
 // controllers/account.controller.js
-const Xdb = require('../config/Xdb');
 const Joi = require('joi');
-const Xerror = require('../config/Xerror');
+const { Xcrud } = require('xsupport');
 
-// -----Admin-----
+const schema = Joi.object({
+  category_id: Joi.number().integer(),
+  data: Joi.string(),
+  status: Joi.string().valid('available', 'sold', 'locked').default('available'),
+  order_id: Joi.number().integer()
+});
+const CRUD = new Xcrud('accounts', schema);
 
-const list = async (req, res) => {
-  const schema = Joi.object({
-    category_id: Joi.number().integer().optional(),
-    status: Joi.string().valid('available', 'sold', 'locked').optional(),
-    page: Joi.number().integer().min(1)
-  });
-
-  const { error, value: { category_id, status, page } } = schema.validate(req.query);
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
-
-  try {
-    const where = [];
-    const params = [];
-    const option = { orderBy: 'id DESC', limit: 20 };
-
-    if (category_id) { where.push('category_id = ?'); params.push(category_id); }
-    if (status) { where.push('status = ?'); params.push(status); }
-    if (page) option.offset = (page - 1) * 20;
-
-    const accounts = await Xdb.select('accounts', [], where.join(' AND '), params, option);
-    return res.json({ success: true, accounts });
-  } catch (err) { throw new Xerror('Lấy danh sách accounts không thành công !', 500); }
+// Admin
+const create = async (req, res) => {
+  const accountId = await CRUD.create(req.body, ['category_id', 'data']);
+  return res.json({ success: true, accountId });
 }
-
-const add = async (req, res) => {
-  const schema = Joi.array().items(Joi.object({
-    category_id: Joi.number().required(),
-    data: Joi.string().required()
-  })).min(1).required();
-  const { error, value } = schema.validate([req.body].flat());
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
-
-  try {
-    let ids = [];
-    await Xdb.transaction(async (tx) => { ids = await tx.insertMany('accounts', value); });
-    return res.json({ success: true, ids });
-  } catch (err) { throw new Xerror('Thêm account không thành công !', 500); }
+const list = async (req, res) => {
+  const accounts = await CRUD.read(req.query);
+  return res.json({ success: true, accounts });
+}
+const count = async (req, res) => {
+  const result = await CRUD.read({ ...req.query, count: true });
+  return res.json({ success: true, count: result })
+}
+const view = async (req, res) => {
+  const [account] = await CRUD.read({ id: req.params.id }, ['id']);
+  return res.json({ success: true, account });
 }
 const update = async (req, res) => {
-  const id = req.params.id;
-  const schema = Joi.object({
-    data: Joi.string(),
-    status: Joi.string().valid('available', 'sold', 'locked'),
-    category_id: Joi.number()
-  }).required();
-  const { error, value } = schema.validate(req.body);
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
-
-  try {
-    await Xdb.update('accounts', value, 'id = ?', [id]);
-    return res.json({ success: true });
-  } catch (err) { throw new Xerror('Cập nhật account không thành công !', 500); }
+  await CRUD.update(req.params.id, req.body);
+  return res.json({ success: true });
 }
-
 const del = async (req, res) => {
-  try {
-    const id = req.params.id;
-    await Xdb.delete('accounts', 'id = ?', [id]);
-    return res.json({ success: true });
-  } catch (err) { throw new Xerror('Xoá account không thành công !', 500); }
+  await CRUD.del(req.params.id);
+  return res.json({ success: true });
 }
 module.exports = {
-  list,
-  add,
-  update,
-  del
+  accountCRUD: CRUD,
+  admin: { create, list, count, view, update, del }
 };
+

@@ -1,90 +1,52 @@
 // controllers/category.controller.js
-const Xdb = require('../config/Xdb');
 const Joi = require('joi');
-const Xerror = require('../config/Xerror');
+const { Xcrud } = require('xsupport');
 
-async function buildTree(parentId = null) {
-  const rows = await Xdb.select(
-    'categories', [],
-    parentId === null ? 'parent_id IS NULL' : 'parent_id = ?',
-    parentId === null ? [] : [parentId]
-  );
-  for (const row of rows) {
-    row.children = await buildTree(row.id);
-  }
-  return rows;
+const schema = Joi.object({
+  name: Joi.string(),
+  slug: Joi.string(),
+  image: Joi.string(),
+  description: Joi.string(),
+  parent_id: Joi.number().integer(),
+  price: Joi.number().integer(),
+  available: Joi.number().integer(),
+  sold: Joi.number().integer(),
+  enabled: Joi.boolean()
+});
+const CRUD = new Xcrud('categories', schema);
+
+// Client
+const listCategory = async (req, res) => {
+  const categories = await CRUD.read({ ...req.query, enabled: true });
+  return res.json({ success: true, categories });
 }
-
-// ----Public ----
-
-const view = async (req, res) => {
-  try {
-    const categories = await buildTree(req.query.parent || null);
-    return res.json({ success: true, categories });
-  } catch (err) { throw new Xerror('Lấy danh sách categorys không thành công !', 500); }
+// Admin
+const create = async (req, res) => {
+  const categoryId = await CRUD.create(req.body, ['name', 'slug', 'price']);
+  return res.json({ success: true, categoryId });
 }
-
 const list = async (req, res) => {
-  try {
-    const parent_id = req.query.parent || null;
-    const categories = await Xdb.select(
-      'categories', [],
-      !!parent_id ? 'parent_id = ?' : null,
-      !!parent_id ? [parent_id] : [],
-      { orderBy: 'id DESC' }
-    );
-    return res.json({ success: true, categories });
-  } catch (err) { throw new Xerror('Lấy danh sách categorys không thành công !', 500); }
+  const categories = await CRUD.read(req.query);
+  return res.json({ success: true, categories });
 }
-
-// ----Admin----
-
-const add = async (req, res) => {
-  const schema = Joi.object({
-    name: Joi.string().required(),
-    slug: Joi.string().required(),
-    description: Joi.string().allow('').optional(),
-    parent_id: Joi.number().allow(null).optional(),
-    image: Joi.string().uri().optional(),
-    price: Joi.number().integer().required()
-  });
-  const { error, value } = schema.validate(req.body);
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
-
-  try {
-    const id = await Xdb.insert('categories', value);
-    return res.json({ success: true, id, message: 'Thêm category thành công !' });
-  } catch (err) { throw new Xerror('Thêm category không thành công !', 500); }
+const count = async (req, res) => {
+  const result = await CRUD.read({ ...req.query, count: true });
+  return res.json({ success: true, count: result })
+}
+const view = async (req, res) => {
+  const [category] = await CRUD.read({ id: req.params.id }, ['id']);
+  return res.json({ success: true, category });
 }
 const update = async (req, res) => {
-  const id = req.params.id;
-  const schema = Joi.object({
-    name: Joi.string(),
-    slug: Joi.string(),
-    description: Joi.string().allow('').optional(),
-    parent_id: Joi.number().allow(null).optional(),
-    image: Joi.string().uri().optional(),
-    price: Joi.number().integer().optional()
-  });
-  const { error, value } = schema.validate(req.body);
-  if (error) throw new Xerror('Thông tin không hợp lệ !', 403);
-
-  try {
-    await Xdb.update('categories', value, 'id = ?', [id]);
-    return res.json({ success: true, message: 'Cập nhật category thành công !' });
-  } catch (err) { throw new Xerror('Cập nhật category không thành công !', 500); }
+  await CRUD.update(req.params.id, req.body);
+  return res.json({ success: true });
 }
 const del = async (req, res) => {
-  const id = req.params.id;
-  try {
-    await Xdb.delete('categories', 'id = ?', [id]);
-    return res.json({ success: true, message: 'Xoá category thành công !' });
-  } catch (err) { throw new Xerror('Xoá category không thành công !', 500); }
+  await CRUD.del(req.params.id);
+  return res.json({ success: true });
 }
 module.exports = {
-  view,
-  list,
-  add,
-  update,
-  del
+  client: { listCategory },
+  admin: { create, list, count, view, update, del }
 };
+

@@ -1,16 +1,13 @@
 // middlewares/auth.middleware.js
-const jwt = require('jsonwebtoken');
 const Xerror = require('../config/Xerror');
-const SECRET = process.env.JWT_SECRET || 'ngohuynhhieu';
+const Xsp = require('../config/Xsp');
 
 const user = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) throw new Xerror('Token không hợp lệ !', 401);
 
     try {
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, SECRET);
-        req.user = decoded;
+        req.user = Xsp.token.verify(authHeader.split(' ')[1]);
         next();
     } catch (err) { throw new Xerror('Token không hợp lệ !', 401); }
 }
