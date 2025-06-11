@@ -1,5 +1,5 @@
 require('dotenv').config();
-require('./config/Xdb').connect();
+require('xsupport').Xdb.connect();
 require('./cron')();
 const express = require('express');
 const app = express();

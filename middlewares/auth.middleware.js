@@ -1,13 +1,13 @@
 // middlewares/auth.middleware.js
-const Xerror = require('../config/Xerror');
-const Xsp = require('../config/Xsp');
+const { Xerror, Xcode } = require("xsupport");
+const SERECT = process.env.JWT_SECRET;
 
 const user = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) throw new Xerror('Token không hợp lệ !', 401);
 
     try {
-        req.user = Xsp.token.verify(authHeader.split(' ')[1]);
+        req.user = Xcode.jwt.verify(authHeader.split(' ')[1], SERECT);
         next();
     } catch (err) { throw new Xerror('Token không hợp lệ !', 401); }
 }
