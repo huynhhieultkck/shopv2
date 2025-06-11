@@ -20,7 +20,7 @@ const viewOrder = async (req, res) => {
   return res.json({ success: true, order });
 }
 const order = async (req, res) => {
-  const orderId = await buyAccount({ ...req.query, user_id: req.user.id });
+  const orderId = await buyAccount({ ...req.body, user_id: req.user.id });
   return res.json({ success: true, orderId });
 }
 // Admin
@@ -41,7 +41,7 @@ const view = async (req, res) => {
   return res.json({ success: true, order });
 }
 const update = async (req, res) => {
-  await CRUD.update(req.params.id, req.body);
+  await CRUD.update(req.params.id, req.body, ['user_id', 'total_price']);
   return res.json({ success: true });
 }
 const del = async (req, res) => {

@@ -33,7 +33,7 @@ const view = async (req, res) => {
     return res.json({ success: true, topup });
 }
 const update = async (req, res) => {
-    await CRUD.update(req.params.id, req.body);
+    await CRUD.update(req.params.id, req.body,['description']);
     return res.json({ success: true });
 }
 const del = async (req, res) => {

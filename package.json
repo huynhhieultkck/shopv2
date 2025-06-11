@@ -15,6 +15,6 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "joi": "^17.13.3",
-    "xsupport": "git+https://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@github.com/huynhhieultkck/Xsupport.git"
+    "xsupport": "git+https://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@github.com/huynhhieultkck/Xsupport.git"
   }
 }

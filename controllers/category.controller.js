@@ -38,7 +38,7 @@ const view = async (req, res) => {
   return res.json({ success: true, category });
 }
 const update = async (req, res) => {
-  await CRUD.update(req.params.id, req.body);
+  await CRUD.update(req.params.id, req.body, ['name', 'slug', 'image', 'description', 'parent_id', 'price', 'enabled']);
   return res.json({ success: true });
 }
 const del = async (req, res) => {

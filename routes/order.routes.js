@@ -6,6 +6,6 @@ const auth = require('../middlewares/auth.middleware');
 
 router.get('/', auth.user, orderController.client.listOrder);
 router.get('/:id', auth.user, orderController.client.viewOrder);
-router.get('/create', auth.user, orderController.client.order);
+router.post('/create', auth.user, orderController.client.order);
 
 module.exports = router;

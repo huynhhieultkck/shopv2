@@ -26,7 +26,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   let { email, password } = req.body;
   const [user] = await CRUD.read({ email, enabled: true }, ['email'], [], { limit: 1, verify: true });
-  if (!user || !Xcode.password.compare(password, user.password) || !user.enabled) return new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
+  if (!user || !Xcode.password.compare(password, user.password)) return new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
   const token = Xcode.jwt.sign({ id: user.id, role: user.role }, SERECT, SERECT_EXPIRES);
   delete user.password;
   return res.json({ success: true, user, token });
@@ -37,9 +37,11 @@ const profile = async (req, res) => {
   return res.json({ success: true, user });
 }
 const updatePassword = async (req, res) => {
-  let { password } = req.body;
-  if (password) password = Xcode.password.hash(password);
-  await CRUD.update(req.user.id, { password });
+  let { password, newPassword } = req.body;
+  if (newPassword) newPassword = Xcode.password.hash(newPassword);
+  const [user] = await CRUD.read({ id, enabled: true }, ['id']);
+  if (!user || !Xcode.password.compare(password, user.password)) return new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
+  await CRUD.update(req.user.id, { password: Xcode.password.hash(newPassword) });
   return res.json({ success: true });
 }
 // Admin
@@ -64,7 +66,8 @@ const view = async (req, res) => {
   return res.json({ success: true, user });
 }
 const update = async (req, res) => {
-  await CRUD.update(req.params.id, req.body);
+  if (req.body.password) req.body.password = Xcode.password.hash(req.body.password);
+  await CRUD.update(req.params.id, req.body, ['password', 'name', 'role', 'balance', 'enabled']);
   return res.json({ success: true });
 }
 const del = async (req, res) => {
