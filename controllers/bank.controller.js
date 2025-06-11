@@ -43,6 +43,7 @@ const del = async (req, res) => {
     return res.json({ success: true });
 }
 module.exports = {
+    bankCRUD: CRUD,
     client: { listBank },
     admin: { create, list, count, view, update, del }
 };

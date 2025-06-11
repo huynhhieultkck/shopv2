@@ -1,5 +1,5 @@
-const Xdb = require('../config/Xdb');
-const axios = require('axios');
+const { Xdb, Xfetch } = require('xsupport');
+const { bankCRUD } = require('../controllers/bank.controller');
 
 const BANK_URLS = {
     vietcombank: 'https://api.web2m.com/historyapivcbv3',
@@ -14,14 +14,14 @@ const cron = async () => {
     if (onCron) return;
     onCron = true;
     console.log('Cron job started...');
-
+    const fetch = new Xfetch();
     while (onCron) {
         try {
-            const activeBanks = await Xdb.select('banks', [], 'enabled = 1');
+            const activeBanks = await bankCRUD.read({ enabled: true });
 
             for (const bank of activeBanks) {
                 const url = `${BANK_URLS[bank.code]}/${bank.password}/AccountNumber/${bank.token}`;
-                const response = await axios.get(url);
+                const response = await fetch.get(url);
 
                 const transactions = response.data.transactions || [];
 
