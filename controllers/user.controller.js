@@ -25,7 +25,7 @@ const register = async (req, res) => {
 }
 const login = async (req, res) => {
   let { email, password } = req.body;
-  const [user] = await CRUD.read({ email }, ['email'], [], { limit: 1, verify: true });
+  const [user] = await CRUD.read({ email, enabled: true }, ['email'], [], { limit: 1, verify: true });
   if (!user || !Xcode.password.compare(password, user.password) || !user.enabled) return new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
   const token = Xcode.jwt.sign({ id: user.id, role: user.role }, SERECT, SERECT_EXPIRES);
   delete user.password;
