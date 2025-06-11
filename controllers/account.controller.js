@@ -12,8 +12,13 @@ const CRUD = new Xcrud('accounts', schema);
 
 // Admin
 const create = async (req, res) => {
-  const accountId = await CRUD.create(req.body, ['category_id', 'data']);
-  return res.json({ success: true, accountId });
+  if (Array.isArray(req.body)) {
+    const accountIds = await CRUD.CreateMany(req.body, ['category_id', 'data']);
+    return res.json({ success: true, accountIds })
+  } else {
+    const accountId = await CRUD.create(req.body, ['category_id', 'data']);
+    return res.json({ success: true, accountId })
+  }
 }
 const list = async (req, res) => {
   const accounts = await CRUD.read(req.query);
