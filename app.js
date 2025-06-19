@@ -13,7 +13,7 @@ app.use('/api', require('./routes'));
 
 
 app.use((err, req, res, next) => {
-    console.warn(err);
+    // console.warn(err);
     res.status(err.status || 500).json({
         success: false,
         message: err.message,

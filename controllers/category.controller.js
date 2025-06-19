@@ -17,7 +17,7 @@ const CRUD = new Xcrud('categories', schema);
 
 // Client
 const listCategory = async (req, res) => {
-  const categories = await CRUD.read({ ...req.query, enabled: true });
+  const categories = await CRUD.read({ ...req.query, enabled: true }, [], ['id', 'name', 'slug', 'image', 'description', 'parent_id', 'price', 'available', 'sold']);
   return res.json({ success: true, categories });
 }
 // Admin

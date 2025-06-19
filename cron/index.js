@@ -20,10 +20,11 @@ const cron = async () => {
             const activeBanks = await bankCRUD.read({ enabled: true });
 
             for (const bank of activeBanks) {
-                const url = `${BANK_URLS[bank.code]}/${bank.password}/AccountNumber/${bank.token}`;
+
+                const url = `${BANK_URLS[bank.code]}/${bank.password}/${bank.account_number}/${bank.token}`;
                 const response = await fetch.get(url);
 
-                const transactions = response.data.transactions || [];
+                const transactions = response.data?.transactions || [];
 
                 for (const tx of transactions) {
                     if (tx.type !== 'IN') continue;
