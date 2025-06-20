@@ -15,7 +15,7 @@ const listOrder = async (req, res) => {
 }
 const viewOrder = async (req, res) => {
   const [order] = await CRUD.read({ id: req.params.id, user_id: req.user.id }, ['id', 'user_id']);
-  if (!order) return new Xerror('Đơn hàng không tồn tại !', { status: 403 });
+  if (!order) throw new Xerror('Đơn hàng không tồn tại !', { status: 403 });
   order.accounts = await accountCRUD.read({ order_id: order.id }, ['order_id'], ['data']);
   return res.json({ success: true, order });
 }

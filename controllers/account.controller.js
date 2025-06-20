@@ -5,7 +5,7 @@ const { Xcrud } = require('xsupport');
 const schema = Joi.object({
   category_id: Joi.number().integer(),
   data: Joi.string(),
-  status: Joi.string().valid('available', 'sold', 'locked').default('available'),
+  status: Joi.string().valid('available', 'sold', 'locked'),
   order_id: Joi.number().integer()
 });
 const CRUD = new Xcrud('accounts', schema);

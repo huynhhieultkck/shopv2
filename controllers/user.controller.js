@@ -8,8 +8,8 @@ const schema = Joi.object({
   email: Joi.string().email(),
   password: Joi.string().min(5),
   name: Joi.string(),
-  role: Joi.string().valid('user', 'admin').default('user'),
-  balance: Joi.number().integer().default(0),
+  role: Joi.string().valid('user', 'admin'),
+  balance: Joi.number().integer(),
   wallet: Joi.string(),
   enabled: Joi.boolean()
 })
@@ -25,8 +25,8 @@ const register = async (req, res) => {
 }
 const login = async (req, res) => {
   let { email, password } = req.body;
-  const [user] = await CRUD.read({ email, enabled: true }, ['email'], [], { limit: 1, verify: true });
-  if (!user || !Xcode.password.compare(password, user.password)) return new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
+  const [user] = await CRUD.read({ email, enabled: true, limit: 1 }, ['email'], [], { verify: true });  
+  if (!user || !Xcode.password.compare(password, user.password)) throw new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
   const token = Xcode.jwt.sign({ id: user.id, role: user.role }, SERECT, SERECT_EXPIRES);
   delete user.password;
   return res.json({ success: true, user, token });
@@ -40,7 +40,7 @@ const updatePassword = async (req, res) => {
   let { password, newPassword } = req.body;
   if (newPassword) newPassword = Xcode.password.hash(newPassword);
   const [user] = await CRUD.read({ id, enabled: true }, ['id']);
-  if (!user || !Xcode.password.compare(password, user.password)) return new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
+  if (!user || !Xcode.password.compare(password, user.password)) throw new Xerror('Tài khoản hoặc mật khẩu không chính xác !', { status: 403 });
   await CRUD.update(req.user.id, { password: Xcode.password.hash(newPassword) });
   return res.json({ success: true });
 }
