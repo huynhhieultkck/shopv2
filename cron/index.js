@@ -48,7 +48,7 @@ const cron = async () => {
                 }
             }
         } catch (err) { console.error(err); }
-        await sleep(10000);
+        await sleep(20000);
     }
 }
 
